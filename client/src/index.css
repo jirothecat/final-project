@@ -3,5 +3,43 @@
   --header: #fff;
   --link: #61dafb;
   --text: hsla(0, 0%, 100%, 0.88);
-}
 
+
+  .game-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  
+  .game-boards {
+    display: flex;
+    gap: 40px;
+    margin-top: 20px;
+  }
+  
+  .board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .board-container h3 {
+    margin-bottom: 15px;
+    color: #333;
+  }
+  
+  .battleship-canvas {
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+ 
+  @media (max-width: 900px) {
+    .game-boards {
+      flex-direction: column;
+    }
+  }
+
+}
