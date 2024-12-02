@@ -2,55 +2,62 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
 function GamePage() {
-    // Existing state and refs
     const { currentUser } = useOutletContext();
     const playerBoardRef = useRef(null);
     const aiBoardRef = useRef(null);
     const [gameLog, setGameLog] = useState(['Welcome Commander! Press Start Game to begin.']);
     const [currentGame, setCurrentGame] = useState(null);
+    const [gameOver, setGameOver] = useState(false);
+    const [gameResult, setGameResult] = useState(null);
     const boardContexts = useRef({ player: null, ai: null });
 
     const GRID_SIZE = 10;
     const CELL_SIZE = 40;
     const PADDING = 20;
 
-    // Add Start Game functionality
-    const startNewGame = async () => {
-        if (!currentUser) {
-            addToGameLog("Please log in to start a game.");
-            return;
+    const checkGameOver = (ships, isPlayerShips) => {
+        const allShipsSunk = ships.every(ship => {
+            const shipLength = getShipLength(ship.ship_type);
+            return ship.hits_taken >= shipLength;
+        });
+
+        if (allShipsSunk) {
+            setGameOver(true);
+            setGameResult(isPlayerShips ? 'loss' : 'win');
+            addToGameLog(isPlayerShips ? 
+                'Your fleet has been destroyed. Better luck next time, Commander!' :
+                'Congratulations Commander! You have destroyed all enemy ships!'
+            );
         }
+    };
 
-        try {
-            const response = await fetch('http://localhost:5555/games', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    user_id: currentUser.id,
-                    ai_difficulty: 'medium'
-                })
-            });
+    const getShipLength = (shipType) => {
+        const shipLengths = {
+            'carrier': 5,
+            'battleship': 4,
+            'cruiser': 3,
+            'submarine': 3,
+            'destroyer': 2
+        };
+        return shipLengths[shipType] || 3;
+    };
 
-            if (!response.ok) {
-                throw new Error('Failed to start game');
-            }
-            
-            const game = await response.json();
-            setCurrentGame(game);
-            addToGameLog("New game started! Choose your target on the enemy board.");
-            
-            // Initialize ships for the new game
-            await fetch(`http://localhost:5555/games/${game.id}/initialize-ships`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-        } catch (error) {
-            console.error('Error starting game:', error);
-            addToGameLog("Failed to start game. Please try again.");
+    const drawShip = (x, y, length, isVertical, ctx) => {
+        ctx.fillStyle = '#666';
+        if (isVertical) {
+            ctx.fillRect(
+                PADDING + x * CELL_SIZE + 5,
+                PADDING + y * CELL_SIZE + 5,
+                CELL_SIZE - 10,
+                CELL_SIZE * length - 10
+            );
+        } else {
+            ctx.fillRect(
+                PADDING + x * CELL_SIZE + 5,
+                PADDING + y * CELL_SIZE + 5,
+                CELL_SIZE * length - 10,
+                CELL_SIZE - 10
+            );
         }
     };
 
@@ -88,9 +95,61 @@ function GamePage() {
         targetCtx.fill();
     };
 
-    const handleCanvasClick = (event, canvas, isPlayerBoard) => {
-        if (!currentUser || !currentGame) {
-            addToGameLog("Please start a new game first!");
+    const startNewGame = async () => {
+        if (!currentUser) {
+            addToGameLog("Please log in to start a game.");
+            return;
+        }
+
+        try {
+            const gameResponse = await fetch('http://localhost:5555/api/games', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    ai_difficulty: 'medium'
+                })
+            });
+
+            if (!gameResponse.ok) throw new Error('Failed to create game');
+            const game = await gameResponse.json();
+            setCurrentGame(game);
+            setGameOver(false);
+            setGameResult(null);
+
+            const shipsResponse = await fetch(`http://localhost:5555/api/games/${game.id}/initialize-ships`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!shipsResponse.ok) throw new Error('Failed to initialize ships');
+            const shipsData = await shipsResponse.json();
+            
+            const ctx = boardContexts.current.player;
+            shipsData.player_ships.forEach(ship => {
+                drawShip(
+                    ship.x,
+                    ship.y,
+                    getShipLength(ship.type),
+                    ship.orientation === 'vertical',
+                    ctx
+                );
+            });
+
+            addToGameLog("New game started! Choose your target on the enemy board.");
+        } catch (error) {
+            console.error('Error starting game:', error);
+            addToGameLog("Failed to start game. Please try again.");
+        }
+    };
+
+    const handleCanvasClick = async (event, canvas, isPlayerBoard) => {
+        if (!currentUser || !currentGame || gameOver) {
+            addToGameLog(gameOver ? "Game is over! Start a new game to play again." : "Please start a new game first!");
             return;
         }
 
@@ -102,41 +161,49 @@ function GamePage() {
             if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
                 const coordinate = `${String.fromCharCode(65 + x)}${y + 1}`;
                 
-                fetch('/api/moves', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        game_id: currentGame.id,
-                        target_x: x,
-                        target_y: y,
-                        is_player_move: true
-                    })
-                })
-                .then(r => r.json())
-                .then(moveResult => {
+                try {
+                    const moveResponse = await fetch('http://localhost:5555/api/moves', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            game_id: currentGame.id,
+                            target_x: x,
+                            target_y: y,
+                            is_player_move: true
+                        })
+                    });
+
+                    const moveResult = await moveResponse.json();
+
                     if (moveResult.is_hit) {
                         drawHit(x, y, boardContexts.current.ai);
                         addToGameLog(`Direct hit at ${coordinate}! Well done, Commander!`);
+                        
+                        // Check if player won
+                        const shipsResponse = await fetch(`http://localhost:5555/api/games/${currentGame.id}/ships?is_player_ship=false`);
+                        const ships = await shipsResponse.json();
+                        checkGameOver(ships, false);
                     } else {
                         drawMiss(x, y, boardContexts.current.ai);
                         addToGameLog(`Shot at ${coordinate} missed. Keep trying, Commander!`);
                     }
 
-                    // AI's turn
-                    setTimeout(() => {
-                        fetch('/api/moves/ai', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                game_id: currentGame.id
-                            })
-                        })
-                        .then(r => r.json())
-                        .then(aiMove => {
+                    if (!gameOver) {
+                        // AI's turn
+                        setTimeout(async () => {
+                            const aiResponse = await fetch('http://localhost:5555/api/moves/ai', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    game_id: currentGame.id
+                                })
+                            });
+
+                            const aiMove = await aiResponse.json();
                             const aiCoord = `${String.fromCharCode(65 + aiMove.target_x)}${aiMove.target_y + 1}`;
                             
                             if (aiMove.is_hit) {
@@ -145,6 +212,11 @@ function GamePage() {
                                     `Enemy fired at ${aiCoord} and hit your ship!`,
                                     `Enemy taking aim...`
                                 ]);
+
+                                // Check if AI won
+                                const playerShipsResponse = await fetch(`http://localhost:5555/api/games/${currentGame.id}/ships?is_player_ship=true`);
+                                const playerShips = await playerShipsResponse.json();
+                                checkGameOver(playerShips, true);
                             } else {
                                 drawMiss(aiMove.target_x, aiMove.target_y, boardContexts.current.player);
                                 addToGameLog([
@@ -152,9 +224,12 @@ function GamePage() {
                                     `Enemy taking aim...`
                                 ]);
                             }
-                        });
-                    }, 1000);
-                });
+                        }, 1000);
+                    }
+                } catch (error) {
+                    console.error('Error during game play:', error);
+                    addToGameLog('Error occurred during play. Please try again.');
+                }
             }
         }
     };
@@ -168,7 +243,6 @@ function GamePage() {
 
             const ctx = canvas.getContext('2d');
             
-            // Store context reference
             if (isPlayerBoard) {
                 boardContexts.current.player = ctx;
             } else {
@@ -192,35 +266,9 @@ function GamePage() {
                 ctx.stroke();
             }
 
-            function drawShip(x, y, length, isVertical) {
-                ctx.fillStyle = '#666';
-                if (isVertical) {
-                    ctx.fillRect(
-                        PADDING + x * CELL_SIZE + 5,
-                        PADDING + y * CELL_SIZE + 5,
-                        CELL_SIZE - 10,
-                        CELL_SIZE * length - 10
-                    );
-                } else {
-                    ctx.fillRect(
-                        PADDING + x * CELL_SIZE + 5,
-                        PADDING + y * CELL_SIZE + 5,
-                        CELL_SIZE * length - 10,
-                        CELL_SIZE - 10
-                    );
-                }
-            }
-
-            // Initialize board
             drawGrid();
 
-            if (isPlayerBoard) {
-                drawShip(2, 3, 3, false);
-                drawShip(5, 2, 4, true);
-            }
-
             canvas.addEventListener('click', (e) => handleCanvasClick(e, canvas, isPlayerBoard));
-            
             return () => canvas.removeEventListener('click', (e) => handleCanvasClick(e, canvas, isPlayerBoard));
         };
 
@@ -228,6 +276,21 @@ function GamePage() {
         initializeBoard(aiBoardRef, false);
 
     }, [currentUser, currentGame]);
+
+    const GameOverOverlay = ({ result }) => (
+        <div className="game-over-overlay">
+            <div className="game-over-content">
+                <h2>{result === 'win' ? 'Victory!' : 'Defeat!'}</h2>
+                <p>{result === 'win' ? 
+                    'Congratulations Commander! All enemy ships have been destroyed!' : 
+                    'Your fleet has been destroyed. Better luck next time, Commander!'
+                }</p>
+                <button onClick={startNewGame} className="new-game-button">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    );
 
     return (
         <div className="game-page">
@@ -238,7 +301,7 @@ function GamePage() {
                         onClick={startNewGame}
                         className="start-game-button"
                     >
-                        Game Start
+                        Start Game
                     </button>
                 )}
             </div>
@@ -269,13 +332,13 @@ function GamePage() {
                 </>
             ) : (
                 <div className="game-placeholder">
-                    <p>Start a new game!</p>
+                    <p>Begin your naval battle by clicking 'Start Game'!</p>
                 </div>
             )}
+
+            {gameOver && <GameOverOverlay result={gameResult} />}
         </div>
     );
 }
-
-
 
 export default GamePage;

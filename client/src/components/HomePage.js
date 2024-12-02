@@ -10,7 +10,7 @@ function HomePage() {
         <div className="home-content">
           <div className="game-intro">
             <h2>Challenge the AI in an Epic Naval Battle</h2>
-            <p>Test your strategic skills against our bot</p>
+            <p>Test your strategic skills against our computer</p>
           </div>
   
           <div className="action-buttons">
@@ -24,8 +24,8 @@ function HomePage() {
   
           <div className="features-grid">
             <div className="feature">
-              <h3>Multiple Difficulty Levels</h3>
-              <p>Choose your challenge level</p>
+              <h3>Click on the grid to attack and sink the enemy's fleet</h3>
+              <p>Log-in to start and play your game</p>
             </div>
             <div className="feature">
               <h3>View detailed game statistics</h3>
@@ -37,7 +37,7 @@ function HomePage() {
             </div>
             <div className="feature">
               <h3>Settings</h3>
-              <p>Adjust the colors and volume</p>
+              <p>Adjust the colors!</p>
             </div>
           </div>
         </div>
