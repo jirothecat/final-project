@@ -32,3 +32,13 @@ python app.py
 cd client
 npm start
 ```
+
+### Features 
+
+- Home screen menu with different routes
+- A login feature (Note: Initial seed data is needed to login and play the game)
+  Username: Battleship
+  Password: playgame
+- Stats Page
+- Leaderboard 
+- Dark mode settings toggle
