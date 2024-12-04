@@ -5,7 +5,6 @@ function StatsPage() {
     const [achievements, setAchievements] = useState([]);
   
     useEffect(() => {
-      // Fetch user stats and achievements when component mounts
       const fetchStats = async () => {
         try {
           const response = await fetch('/api/user/stats');

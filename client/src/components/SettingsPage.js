@@ -5,10 +5,8 @@ function SettingsPage() {
     const { darkMode, setDarkMode } = useOutletContext();
 
     useEffect(() => {
-        // Update body class when dark mode changes
         document.body.classList.toggle('dark-mode', darkMode);
         
-        // Store the preference
         localStorage.setItem('darkMode', JSON.stringify(darkMode));
     }, [darkMode]);
 

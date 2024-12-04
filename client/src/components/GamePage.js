@@ -187,11 +187,9 @@ function GamePage() {
                     if (moveResult.is_hit) {
                         drawHit(x, y, boardContexts.current.ai);
                         
-                        // Check if any ships were sunk
                         const shipsResponse = await fetch(`http://localhost:5555/api/games/${currentGame.id}/ships?is_player_ship=false`);
                         const ships = await shipsResponse.json();
                         
-                        // Find if the hit just sunk a ship
                         const sunkShip = ships.find(ship => isShipSunk(ship));
                         
                         if (sunkShip) {
@@ -214,7 +212,6 @@ function GamePage() {
                             addToGameLog("Enemy taking aim...");
                         }, 1000);
                     
-                        // AI's turn
                         setTimeout(async () => {
                             const aiResponse = await fetch('http://localhost:5555/api/moves/ai', {
                                 method: 'POST',
@@ -232,7 +229,6 @@ function GamePage() {
                             if (aiMove.is_hit) {
                                 drawHit(aiMove.target_x, aiMove.target_y, boardContexts.current.player);
                                 
-                                // Check if AI sunk a ship
                                 const playerShipsResponse = await fetch(`http://localhost:5555/api/games/${currentGame.id}/ships?is_player_ship=true`);
                                 const playerShips = await playerShipsResponse.json();
                                 const sunkShip = playerShips.find(ship => isShipSunk(ship));
