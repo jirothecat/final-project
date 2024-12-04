@@ -358,6 +358,7 @@ def get_game_ships(game_id):
         'hits_taken': ship.hits_taken
     } for ship in ships]), 200
 
+
 api.add_resource(Users, '/api/users')
 api.add_resource(UserById, '/api/users/<int:id>')
 api.add_resource(Games, '/api/games')

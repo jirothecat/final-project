@@ -15,6 +15,10 @@ function GamePage() {
     const CELL_SIZE = 40;
     const PADDING = 20;
 
+    const isShipSunk = (ship) => {
+        return ship.hits_taken >= getShipLength(ship.ship_type);
+    };
+
     const checkGameOver = (ships, isPlayerShips) => {
         const allShipsSunk = ships.every(ship => {
             const shipLength = getShipLength(ship.ship_type);
@@ -26,7 +30,7 @@ function GamePage() {
             setGameResult(isPlayerShips ? 'loss' : 'win');
             addToGameLog(isPlayerShips ? 
                 'Your fleet has been destroyed. Better luck next time, Commander!' :
-                'Congratulations Commander! You have destroyed all enemy ships!'
+                'Congratulations Commander! All hostiles eliminated!'
             );
         }
     };
@@ -63,9 +67,12 @@ function GamePage() {
 
     const addToGameLog = (messages) => {
         if (Array.isArray(messages)) {
-            setGameLog(messages.slice(0, 2));
+            setGameLog(prevLog => [messages[0], ...prevLog.slice(0, 11)])
+            setTimeout(() => {
+                setGameLog(prevLog => ["Your turn!", "Select your target on the enemy board.", ...prevLog.slice(0, 19)]);
+            }, 1500);
         } else {
-            setGameLog(prevLog => [messages, prevLog[0]]);
+            setGameLog(prevLog => [messages, ...prevLog.slice(0, 11)])
         }
     };
 
@@ -179,11 +186,23 @@ function GamePage() {
 
                     if (moveResult.is_hit) {
                         drawHit(x, y, boardContexts.current.ai);
-                        addToGameLog(`Direct hit at ${coordinate}! Well done, Commander!`);
                         
-                        // Check if player won
+                        // Check if any ships were sunk
                         const shipsResponse = await fetch(`http://localhost:5555/api/games/${currentGame.id}/ships?is_player_ship=false`);
                         const ships = await shipsResponse.json();
+                        
+                        // Find if the hit just sunk a ship
+                        const sunkShip = ships.find(ship => isShipSunk(ship));
+                        
+                        if (sunkShip) {
+                            addToGameLog(`Direct hit! You've sunk the enemy's ${sunkShip.ship_type}!`);
+                            setTimeout(() => {
+                                addToGameLog("Enemy fleet commander in disarray!");
+                            }, 1500);
+                        } else {
+                            addToGameLog(`Direct hit at ${coordinate}! Well done, Commander!`);
+                        }
+                        
                         checkGameOver(ships, false);
                     } else {
                         drawMiss(x, y, boardContexts.current.ai);
@@ -191,6 +210,10 @@ function GamePage() {
                     }
 
                     if (!gameOver) {
+                        setTimeout(() => {
+                            addToGameLog("Enemy taking aim...");
+                        }, 1000);
+                    
                         // AI's turn
                         setTimeout(async () => {
                             const aiResponse = await fetch('http://localhost:5555/api/moves/ai', {
@@ -208,23 +231,33 @@ function GamePage() {
                             
                             if (aiMove.is_hit) {
                                 drawHit(aiMove.target_x, aiMove.target_y, boardContexts.current.player);
-                                addToGameLog([
-                                    `Enemy fired at ${aiCoord} and hit your ship!`,
-                                    `Enemy taking aim...`
-                                ]);
-
-                                // Check if AI won
+                                
+                                // Check if AI sunk a ship
                                 const playerShipsResponse = await fetch(`http://localhost:5555/api/games/${currentGame.id}/ships?is_player_ship=true`);
                                 const playerShips = await playerShipsResponse.json();
+                                const sunkShip = playerShips.find(ship => isShipSunk(ship));
+                                
+                                if (sunkShip) {
+                                    addToGameLog([
+                                        `Enemy has sunk your ${sunkShip.ship_type}!`,
+                                        "Damage control teams responding..."
+                                    ]);
+                                } else {
+                                    addToGameLog([
+                                        `Enemy fired at ${aiCoord} and hit your ship!`,
+                                        "Your turn!"
+                                    ]);
+                                }
+                                
                                 checkGameOver(playerShips, true);
                             } else {
                                 drawMiss(aiMove.target_x, aiMove.target_y, boardContexts.current.player);
                                 addToGameLog([
                                     `Enemy fired at ${aiCoord} and missed.`,
-                                    `Enemy taking aim...`
+                                    "Your turn!"
                                 ]);
                             }
-                        }, 1000);
+                        }, 1500);
                     }
                 } catch (error) {
                     console.error('Error during game play:', error);
@@ -320,15 +353,19 @@ function GamePage() {
                     </div>
                     
                     <div className="game-log-container">
-                        <h3>Battle Log</h3>
-                        <div className="game-log">
-                            {gameLog.map((message, index) => (
-                                <div key={index} className="log-message">
-                                    {message}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+    <h3>Battle Log</h3>
+    <div className="game-log">
+        {gameLog.map((message, index) => (
+            <div 
+                key={index} 
+                className={`log-message ${message === "Your turn!" ? 'your-turn' : ''} 
+                           ${index === 0 ? 'latest-message' : ''}`}
+            >
+                {message}
+            </div>
+        ))}
+    </div>
+</div>
                 </>
             ) : (
                 <div className="game-placeholder">

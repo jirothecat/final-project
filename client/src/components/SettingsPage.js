@@ -7,14 +7,13 @@ function SettingsPage() {
     useEffect(() => {
         // Update body class when dark mode changes
         document.body.classList.toggle('dark-mode', darkMode);
+        
+        // Store the preference
+        localStorage.setItem('darkMode', JSON.stringify(darkMode));
     }, [darkMode]);
 
     const handleThemeToggle = () => {
-        setDarkMode(prevMode => {
-            const newMode = !prevMode;
-            localStorage.setItem('darkMode', JSON.stringify(newMode));
-            return newMode;
-        });
+        setDarkMode(prevMode => !prevMode);
     };
 
     return (
@@ -25,7 +24,7 @@ function SettingsPage() {
                     <h3>Display Settings</h3>
                     <div className="setting-item">
                         <span>Dark Mode</span>
-                        <label className="toggle-switch">
+                        <label className="toggle-switch" title="Toggle dark mode">
                             <input
                                 type="checkbox"
                                 checked={darkMode}

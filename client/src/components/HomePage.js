@@ -37,7 +37,7 @@ function HomePage() {
             </div>
             <div className="feature">
               <h3>Settings</h3>
-              <p>Adjust the colors!</p>
+              <p>Switch between light and dark mode!</p>
             </div>
           </div>
         </div>

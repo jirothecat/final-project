@@ -6,6 +6,7 @@ from config import db
 
 # Models go here!
 
+
 class User(db.Model, SerializerMixin):
     __tablename__ = 'users'
 
