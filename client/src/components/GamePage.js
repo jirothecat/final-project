@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
 function GamePage() {
-    const { currentUser } = useOutletContext();
+    const { currentUser, setCurrentUser } = useOutletContext();
     const playerBoardRef = useRef(null);
     const aiBoardRef = useRef(null);
     const [gameLog, setGameLog] = useState(['Welcome Commander! Press Start Game to begin.']);
@@ -19,15 +19,52 @@ function GamePage() {
         return ship.hits_taken >= getShipLength(ship.ship_type);
     };
 
-    const checkGameOver = (ships, isPlayerShips) => {
+    // const checkGameOver = (ships, isPlayerShips) => {
+    //     const allShipsSunk = ships.every(ship => {
+    //         const shipLength = getShipLength(ship.ship_type);
+    //         return ship.hits_taken >= shipLength;
+    //     });
+
+    //     if (allShipsSunk) {
+    //         setGameOver(true);
+    //         setGameResult(isPlayerShips ? 'loss' : 'win');
+    //         addToGameLog(isPlayerShips ? 
+    //             'Your fleet has been destroyed. Better luck next time, Commander!' :
+    //             'Congratulations Commander! All hostiles eliminated!'
+    //         );
+    //     }
+    // };
+
+    const checkGameOver = async (ships, isPlayerShips) => {
         const allShipsSunk = ships.every(ship => {
             const shipLength = getShipLength(ship.ship_type);
             return ship.hits_taken >= shipLength;
         });
-
+    
         if (allShipsSunk) {
             setGameOver(true);
-            setGameResult(isPlayerShips ? 'loss' : 'win');
+            const result = isPlayerShips ? 'loss' : 'win';
+            setGameResult(result);
+            
+            try {
+                const response = await fetch(`http://localhost:5555/api/games/${currentGame.id}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        result: result
+                    })
+                });
+    
+                if (response.ok) {
+                    const data = await response.json();
+                    setCurrentUser(data.user);
+                }
+            } catch (error) {
+                console.error('Error updating game stats:', error);
+            }
+    
             addToGameLog(isPlayerShips ? 
                 'Your fleet has been destroyed. Better luck next time, Commander!' :
                 'Congratulations Commander! All hostiles eliminated!'
@@ -70,7 +107,7 @@ function GamePage() {
             setGameLog(prevLog => [messages[0], ...prevLog.slice(0, 11)])
             setTimeout(() => {
                 setGameLog(prevLog => ["Your turn!", "Select your target on the enemy board.", ...prevLog.slice(0, 19)]);
-            }, 1500);
+            }, 1250);
         } else {
             setGameLog(prevLog => [messages, ...prevLog.slice(0, 11)])
         }
@@ -196,7 +233,7 @@ function GamePage() {
                             addToGameLog(`Direct hit! You've sunk the enemy's ${sunkShip.ship_type}!`);
                             setTimeout(() => {
                                 addToGameLog("Enemy fleet commander in disarray!");
-                            }, 1500);
+                            }, 1000);
                         } else {
                             addToGameLog(`Direct hit at ${coordinate}! Well done, Commander!`);
                         }
@@ -253,7 +290,7 @@ function GamePage() {
                                     "Your turn!"
                                 ]);
                             }
-                        }, 1500);
+                        }, 1250);
                     }
                 } catch (error) {
                     console.error('Error during game play:', error);
